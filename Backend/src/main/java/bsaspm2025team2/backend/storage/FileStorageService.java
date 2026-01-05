@@ -6,7 +6,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 
 @Service
 public class FileStorageService {
@@ -29,12 +32,11 @@ public class FileStorageService {
             String storageKey = storageId + ".pdf";
             Path target = basePath.resolve(storageKey).normalize();
 
-            // Safety: prevent path traversal, even though we generate the name ourselves.
+            // Safety: prevent path traversal
             if (!target.startsWith(basePath)) {
                 throw new StorageException("Invalid storage path");
             }
 
-            // Overwrite = false (should never collide with UUID, but safer)
             try (InputStream in = file.getInputStream()) {
                 Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
             }
@@ -54,11 +56,18 @@ public class FileStorageService {
                 Files.deleteIfExists(target);
             }
         } catch (Exception ignored) {
-            // Intentionally ignore; used in rollback scenarios
+            // rollback helper
         }
     }
 
+    /**
+     * Resolves storage key to absolute path inside basePath.
+     */
     public Path resolve(String storagePath) {
+        if (storagePath == null || storagePath.isBlank()) {
+            throw new StorageException("Storage path is empty");
+        }
+
         Path target = basePath.resolve(storagePath).normalize();
         if (!target.startsWith(basePath)) {
             throw new StorageException("Invalid storage path");
