@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16
+    container_name: recruiting-db
+    environment:
+      POSTGRES_DB: recruiting
+      POSTGRES_USER: recruiting
+      POSTGRES_PASSWORD: recruiting
+    ports:
+      - "5432:5432"
+    volumes:
+      - recruiting_pgdata:/var/lib/postgresql/data
+
+volumes:
+  recruiting_pgdata:
