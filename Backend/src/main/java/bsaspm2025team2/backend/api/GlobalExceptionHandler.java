@@ -7,9 +7,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(InvalidFileTypeException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
@@ -40,6 +44,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ApiErrorResponse handleGeneric(Exception ex) {
-        return new ApiErrorResponse("INTERNAL_ERROR", "Unexpected error");
+        log.error("Unhandled exception", ex); // <-- это выведет stacktrace в docker logs
+        return new ApiErrorResponse("INTERNAL_ERROR", ex.getClass().getSimpleName() + ": " + ex.getMessage());
     }
 }
