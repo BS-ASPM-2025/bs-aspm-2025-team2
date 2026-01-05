@@ -23,4 +23,4 @@ spring:
 
 app:
   storage:
-    base-path: ./data/resumes
+    base-path: ${APP_STORAGE_BASE_PATH:./data/resumes}
