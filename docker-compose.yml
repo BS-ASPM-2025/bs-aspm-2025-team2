@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: sepm
+      POSTGRES_USER: sepm
+      POSTGRES_PASSWORD: hadas
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - app
+
+  backend:
+    image: mkafri/sepm-backend:latest
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: sepm
+      DB_USER: sepm
+      DB_PASSWORD: hadas
+    depends_on:
+      - db
+    networks:
+      - app
+
+  web:
+    image: mkafri/sepm-frontend:latest
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:8085:80"
+    networks:
+      - app
+
+networks:
+  app:
+
+volumes:
+  db_data:
