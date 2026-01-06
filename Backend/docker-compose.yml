@@ -1,0 +1,38 @@
+name: recruiting
+
+services:
+  db:
+    image: postgres:16
+    container_name: recruiting-db
+    environment:
+      POSTGRES_DB: recruiting
+      POSTGRES_USER: recruiting
+      POSTGRES_PASSWORD: recruiting
+    ports:
+      - "5432:5432"
+    volumes:
+      - recruiting_pgdata:/var/lib/postgresql/data
+
+  backend:
+    container_name: recruiting-backend
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - db
+    environment:
+      # IMPORTANT: внутри docker "localhost" не работает для связи с другим контейнером
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/recruiting
+      SPRING_DATASOURCE_USERNAME: recruiting
+      SPRING_DATASOURCE_PASSWORD: recruiting
+
+      # File storage inside container:
+      APP_STORAGE_BASE_PATH: /data/resumes
+    ports:
+      - "8080:8080"
+    volumes:
+      # Host folder (relative to docker-compose.yml) -> container folder
+      - ./data/resumes:/data/resumes
+
+volumes:
+  recruiting_pgdata:
