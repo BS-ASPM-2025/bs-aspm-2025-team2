@@ -43,7 +43,7 @@ public class CandidateController {
         if (req.phone() == null || req.phone().isBlank()) errors.put("phone", "Phone is required");
 
         if (!errors.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Validation failed", new IllegalArgumentException(errors.toString()));
+            throw new ValidationException(errors);
         }
 
         // Apply updates
