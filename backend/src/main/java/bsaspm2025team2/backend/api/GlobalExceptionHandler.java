@@ -4,11 +4,14 @@ import bsaspm2025team2.backend.api.dto.ApiErrorResponse;
 import bsaspm2025team2.backend.validation.FileTooLargeException;
 import bsaspm2025team2.backend.validation.InvalidFileTypeException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -47,4 +50,21 @@ public class GlobalExceptionHandler {
         log.error("Unhandled exception", ex); // <-- это выведет stacktrace в docker logs
         return new ApiErrorResponse("INTERNAL_ERROR", ex.getClass().getSimpleName() + ": " + ex.getMessage());
     }
+    @ExceptionHandler(ValidationException.class)
+    public ResponseEntity<?> handleValidation(ValidationException ex) {
+        return ResponseEntity.badRequest().body(Map.of(
+                "error", "VALIDATION_ERROR",
+                "message", ex.getMessage(),
+                "fields", ex.getErrors()
+        ));
+    }
+
+    @ExceptionHandler(bsaspm2025team2.backend.api.CandidateNotFoundException.class)
+    public ResponseEntity<?> handleNotFound(bsaspm2025team2.backend.api.CandidateNotFoundException ex) {
+        return ResponseEntity.status(404).body(Map.of(
+                "error", "NOT_FOUND",
+                "message", ex.getMessage()
+        ));
+    }
+
 }
