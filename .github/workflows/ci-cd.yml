@@ -55,7 +55,11 @@ jobs:
           script: |
             set -e
             cd /home/sepm/apps/sepm
-            git pull
+            git fetch origin main
+            git reset --hard origin/main
+            # git clean -fd -e .env -e docker-data -e uploads -e data -e resumes
             docker compose pull
             docker compose up -d
             docker image prune -f
+            sleep 5
+            curl -f http://127.0.0.1:8085/ > /dev/null
