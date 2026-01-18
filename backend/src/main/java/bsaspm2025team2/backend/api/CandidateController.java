@@ -39,6 +39,7 @@ public class CandidateController {
 
         // Server-side validation: Email + Phone required
         Map<String, String> errors = new LinkedHashMap<>();
+        if (req.status() == null) errors.put("status", "Status is required");
         if (req.email() == null || req.email().isBlank()) errors.put("email", "Email is required");
         if (req.phone() == null || req.phone().isBlank()) errors.put("phone", "Phone is required");
 
@@ -52,6 +53,7 @@ public class CandidateController {
         c.setPhone(req.phone());
         c.setSkills(req.skills());
         c.setYearsOfExperience(req.yearsOfExperience());
+        c.setStatus(req.status());
 
         // Important: after "Save" data becomes final
         c.setDraft(false);
