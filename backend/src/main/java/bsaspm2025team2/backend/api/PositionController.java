@@ -7,6 +7,8 @@ import bsaspm2025team2.backend.repository.PositionRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import java.util.List;
 
@@ -23,6 +25,7 @@ public class PositionController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public PositionResponse create(@RequestBody PositionRequest request) {
+        validateWeights(request);
         Position position = new Position(
                 request.name(),
                 request.requiredSkills(),
@@ -54,6 +57,7 @@ public class PositionController {
         Position position = positionRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Position not found"));
 
+        validateWeights(request);
         position.setName(request.name());
         position.setRequiredSkills(request.requiredSkills());
         position.setSkillsWeight(request.skillsWeight());
@@ -80,5 +84,24 @@ public class PositionController {
                 p.getSkillsWeight(),
                 p.getExperienceWeight()
         );
+    }
+    private void validateWeights(PositionRequest request) {
+        Map<String, String> errors = new LinkedHashMap<>();
+
+        if (request.skillsWeight() < 0) {
+            errors.put("skillsWeight", "skillsWeight must be non-negative");
+        }
+        if (request.experienceWeight() < 0) {
+            errors.put("experienceWeight", "experienceWeight must be non-negative");
+        }
+
+        int sum = request.skillsWeight() + request.experienceWeight();
+        if (sum != 100) {
+            errors.put("weights", "weights must sum to 100");
+        }
+
+        if (!errors.isEmpty()) {
+            throw new ValidationException(errors);
+        }
     }
 }
