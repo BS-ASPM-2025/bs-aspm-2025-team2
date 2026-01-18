@@ -1,17 +1,22 @@
 package bsaspm2025team2.backend.api;
 
 import bsaspm2025team2.backend.api.dto.ApiErrorResponse;
+import bsaspm2025team2.backend.domain.CandidateStatus;
 import bsaspm2025team2.backend.validation.FileTooLargeException;
 import bsaspm2025team2.backend.validation.InvalidFileTypeException;
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Arrays;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -64,6 +69,29 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(404).body(Map.of(
                 "error", "NOT_FOUND",
                 "message", ex.getMessage()
+        ));
+    }
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<?> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
+        Throwable cause = ex.getCause();
+        if (cause instanceof InvalidFormatException ife) {
+            Class<?> targetType = ife.getTargetType();
+            if (targetType != null && CandidateStatus.class.isAssignableFrom(targetType)) {
+                String allowed = Arrays.stream(CandidateStatus.values())
+                        .map(Enum::name)
+                        .collect(Collectors.joining(", "));
+
+                return ResponseEntity.badRequest().body(Map.of(
+                        "error", "VALIDATION_ERROR",
+                        "message", "Validation failed",
+                        "fields", Map.of("status", "Status must be one of: " + allowed)
+                ));
+            }
+        }
+
+        return ResponseEntity.badRequest().body(Map.of(
+                "error", "BAD_REQUEST",
+                "message", "Malformed JSON request"
         ));
     }
 
