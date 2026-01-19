@@ -128,8 +128,7 @@ public class CandidateListController {
     private Comparator<CandidateWithScore> comparator(String sort) {
         if ("score_asc".equalsIgnoreCase(sort)) {
             return Comparator.<CandidateWithScore>comparingInt(cs -> cs.score)
-                    .thenComparing(cs -> cs.candidate.getUploadDate(), Comparator.nullsLast(Comparator.naturalOrder()))
-                    .reversed().reversed(); // keep stable-ish
+                    .thenComparing(cs -> cs.candidate.getUploadDate(), Comparator.nullsLast(Comparator.reverseOrder()));
         }
         if ("score_desc".equalsIgnoreCase(sort)) {
             return Comparator.<CandidateWithScore>comparingInt((CandidateWithScore cs) -> cs.score).reversed()
