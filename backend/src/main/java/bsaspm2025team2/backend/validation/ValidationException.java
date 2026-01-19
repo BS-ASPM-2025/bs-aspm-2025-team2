@@ -1,4 +1,4 @@
-package bsaspm2025team2.backend.api;
+package bsaspm2025team2.backend.validation;
 
 import java.util.Map;
 

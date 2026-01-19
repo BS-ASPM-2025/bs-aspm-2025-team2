@@ -7,6 +7,7 @@ public record CandidateCardResponse(
         String status,
         Instant upload_date,
         boolean draft,
+        Integer score,
         Fields fields,
         Validation validation
 ) {

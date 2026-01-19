@@ -1,7 +1,7 @@
 package bsaspm2025team2.backend.service;
 
 import bsaspm2025team2.backend.api.CandidateNotFoundException;
-import bsaspm2025team2.backend.api.ValidationException;
+import bsaspm2025team2.backend.validation.ValidationException;
 import bsaspm2025team2.backend.api.dto.UpdateCandidateRequest;
 import bsaspm2025team2.backend.domain.Candidate;
 import bsaspm2025team2.backend.repository.CandidateRepository;
