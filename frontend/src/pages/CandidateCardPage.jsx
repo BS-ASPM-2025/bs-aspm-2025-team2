@@ -1,3 +1,4 @@
+import React from "react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
@@ -40,6 +41,7 @@ export default function CandidateCardPage() {
 
   const [loaded, setLoaded] = useState(null);
   const [form, setForm] = useState({
+    status: "NEW",
     full_name: "",
     email: "",
     phone: "",
@@ -85,6 +87,7 @@ export default function CandidateCardPage() {
 
         const f = json.fields || {};
         setForm({
+          status: json.status ?? "NEW",
           full_name: f.full_name ?? "",
           email: f.email ?? "",
           phone: f.phone ?? "",
@@ -167,7 +170,7 @@ export default function CandidateCardPage() {
       phone,
       skills: form.skills.trim() || null,
       yearsOfExperience: yoe,
-      status: loaded.status, // optional; usually omit
+      status: form.status,
     };
 
     setSaving(true);
@@ -198,7 +201,7 @@ export default function CandidateCardPage() {
       // Success
       setSavedMsg("Saved");
 
-      // Update local state from server response (nice to have)
+      // Update local state from server response 
       if (json) {
         setLoaded(json);
         const f = json.fields || {};
@@ -239,6 +242,27 @@ export default function CandidateCardPage() {
       <p>
         <b>Status:</b> {loaded.status}
       </p>
+
+      <div style={{ marginBottom: 12 }}>
+  <strong>Status *</strong>
+  <select
+    value={form.status}
+    onChange={(e) => updateField("status", e.target.value)}
+    style={{
+      width: "100%",
+      padding: 10,
+      marginTop: 6,
+      borderRadius: 4,
+      border: "1px solid #ccc",
+      background: "white",
+    }}
+  >
+    <option value="NEW">New</option>
+    <option value="IN_REVIEW">In Review</option>
+    <option value="REJECTED">Rejected</option>
+    <option value="HIRED">Hired</option>
+  </select>
+</div>
 
       <Input
         label="Full name"
