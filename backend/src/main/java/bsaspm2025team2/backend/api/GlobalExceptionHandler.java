@@ -4,6 +4,7 @@ import bsaspm2025team2.backend.api.dto.ApiErrorResponse;
 import bsaspm2025team2.backend.domain.CandidateStatus;
 import bsaspm2025team2.backend.validation.FileTooLargeException;
 import bsaspm2025team2.backend.validation.InvalidFileTypeException;
+import bsaspm2025team2.backend.validation.ValidationException;
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

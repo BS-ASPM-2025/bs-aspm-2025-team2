@@ -4,6 +4,7 @@ import bsaspm2025team2.backend.api.dto.PositionRequest;
 import bsaspm2025team2.backend.api.dto.PositionResponse;
 import bsaspm2025team2.backend.domain.Position;
 import bsaspm2025team2.backend.repository.PositionRepository;
+import bsaspm2025team2.backend.validation.ValidationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
