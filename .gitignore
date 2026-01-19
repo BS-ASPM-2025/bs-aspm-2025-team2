@@ -46,7 +46,7 @@ application-dev.yml
 *.pdf
 data/
 uploads/
-storage/
+#storage/
 resumes/
 
 ########################################
