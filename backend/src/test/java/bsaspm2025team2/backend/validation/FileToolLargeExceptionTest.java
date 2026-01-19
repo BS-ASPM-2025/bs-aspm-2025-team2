@@ -1,14 +1,7 @@
 package bsaspm2025team2.backend.validation;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Disabled;
 
-@Disabled("Disabled for CI – requires DB")
-@SpringBootTest
-class BackendApplicationTests {
-    @Test
-    void contextLoads() {}
-}
 import static org.junit.jupiter.api.Assertions.*;
 
 class FileTooLargeExceptionTest {
