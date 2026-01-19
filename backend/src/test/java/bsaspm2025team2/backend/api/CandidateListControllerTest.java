@@ -123,4 +123,62 @@ class CandidateListControllerTest {
         when(c.getYearsOfExperience()).thenReturn(1);
         return c;
     }
+    @Test
+    void listFiltersByStatus() throws Exception {
+        Candidate c1 = mockCandidate(1L, "A", "a@mail.com", "111", "java", Instant.parse("2026-01-01T00:00:00Z"));
+        when(c1.getStatus()).thenReturn(CandidateStatus.NEW);
+
+        Candidate c2 = mockCandidate(2L, "B", "b@mail.com", "222", "java", Instant.parse("2026-01-02T00:00:00Z"));
+        when(c2.getStatus()).thenReturn(CandidateStatus.REJECTED);
+
+        when(candidateRepository.findAll()).thenReturn(List.of(c1, c2));
+
+        mockMvc.perform(get("/api/hr/candidates")
+                        .with(httpBasic("hr", "hrPass"))
+                        .param("status", "REJECTED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].candidate_id").value(2))
+                .andExpect(jsonPath("$.items[0].status").value("REJECTED"));
+    }
+
+    @Test
+    void listFiltersByQ_matchesFullNameEmailOrPhone_caseInsensitivePartial() throws Exception {
+        Candidate c1 = mockCandidate(1L, "John Doe", "john@doe.com", "555-111", "java", Instant.parse("2026-01-01T00:00:00Z"));
+        Candidate c2 = mockCandidate(2L, "Alice Smith", "alice@smith.com", "999-222", "java", Instant.parse("2026-01-02T00:00:00Z"));
+
+        when(candidateRepository.findAll()).thenReturn(List.of(c1, c2));
+
+        mockMvc.perform(get("/api/hr/candidates")
+                        .with(httpBasic("hr", "hrPass"))
+                        .param("q", "DOE")) // должно найти John Doe и john@doe.com
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].candidate_id").value(1));
+    }
+
+    @Test
+    void listFiltersByMinYears() throws Exception {
+        Candidate c1 = mockCandidate(1L, "A", "a@mail.com", "111", "java", Instant.parse("2026-01-01T00:00:00Z"));
+        when(c1.getYearsOfExperience()).thenReturn(1);
+
+        Candidate c2 = mockCandidate(2L, "B", "b@mail.com", "222", "java", Instant.parse("2026-01-02T00:00:00Z"));
+        when(c2.getYearsOfExperience()).thenReturn(5);
+
+        Candidate c3 = mockCandidate(3L, "C", "c@mail.com", "333", "java", Instant.parse("2026-01-03T00:00:00Z"));
+        when(c3.getYearsOfExperience()).thenReturn(null); // должен отфильтроваться
+
+        when(candidateRepository.findAll()).thenReturn(List.of(c1, c2, c3));
+
+        mockMvc.perform(get("/api/hr/candidates")
+                        .with(httpBasic("hr", "hrPass"))
+                        .param("min_years", "3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].candidate_id").value(2));
+    }
+
 }
