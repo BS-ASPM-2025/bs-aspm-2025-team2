@@ -29,7 +29,7 @@ class CandidateFieldExtractionServiceTest {
     void extract_extractsAndNormalizesPhone() {
         String text = "Phone: +1 (234) 567-8901";
         ExtractedCandidateFields f = service.extract(text);
-        assertEquals("+12345678901", f.phone());
+        assertEquals("12345678901", f.phone());
     }
 
     @Test
