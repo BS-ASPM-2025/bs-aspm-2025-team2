@@ -9,5 +9,6 @@ public record CandidateListItemResponse(
         String phone,
         String status,
         Integer years_of_experience,
-        Instant upload_date
+        Instant upload_date,
+        int score
 ) {}
