@@ -152,6 +152,7 @@ export default function CandidateListPage() {
     <div>
       <h1 style={{ fontSize: 56, margin: "32px 0 24px" }}>Candidate List</h1>
 
+      <div class="filters">
       {/* Filters */}
       <div
         style={{
@@ -208,6 +209,7 @@ export default function CandidateListPage() {
         <button onClick={onReset} style={{ padding: "10px 18px" }}>
           Reset
         </button>
+      </div>
       </div>
 
       {/* Status */}
