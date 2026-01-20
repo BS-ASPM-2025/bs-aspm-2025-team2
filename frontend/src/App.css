@@ -41,8 +41,19 @@
   color: #888;
 }
 
+/* Global page spacing */
+body {
+  margin: 0;
+}
+
+/* Center app content */
 .container {
   max-width: 900px;
   margin: 0 auto;
   padding: 24px;
+}
+
+/* Optional: make forms look a bit nicer */
+input, textarea, select, button {
+  font: inherit;
 }
