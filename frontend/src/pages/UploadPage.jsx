@@ -1,49 +1,60 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-function validateFile(file) {
-  if (!file) return "Please select a file.";
-  if (file.size > 10 * 1024 * 1024) return "File is too large. Max size is 10MB.";
-  const isPdfByMime = file.type === "application/pdf";
-  const isPdfByExt = file.name.toLowerCase().endsWith(".pdf");
-  if (!isPdfByMime && !isPdfByExt) return "Only PDF files are accepted.";
-  return null;
-}
+import NavBar from "../components/NavBar.jsx";
 
 export default function UploadPage() {
-  const [file, setFile] = useState(null);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  async function onUpload() {
-    setError(null);
+  const [file, setFile] = useState(null);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-    const validation = validateFile(file);
-    if (validation) {
-      setError(validation);
+  async function onSubmit(e) {
+    e.preventDefault();
+    setMessage("");
+    setError("");
+
+    if (!file) {
+      setError("Please choose a file");
       return;
     }
 
+    // client-side checks (MVP)
+    if (file.type !== "application/pdf") {
+      setError("Only PDF files are accepted");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError("File is too large (max 10MB)");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
     setLoading(true);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-
       const res = await fetch("/api/hr/candidates/upload-resume", {
         method: "POST",
-        body: fd,
+        body: formData,
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setError(data.message || "Upload failed");
+        // backend usually returns { error, message }
+        setError(data.message || `HTTP ${res.status}`);
         return;
       }
 
-      navigate(`/candidates/${data.candidate_id}`);
-    } catch (e) {
+      const candidateId = data.candidate_id ?? data.candidateId;
+      setMessage(data.message || "Uploaded successfully");
+
+      if (candidateId) {
+        navigate(`/candidates/${candidateId}`);
+      }
+    } catch (e2) {
       setError("Network error");
     } finally {
       setLoading(false);
@@ -51,22 +62,25 @@ export default function UploadPage() {
   }
 
   return (
-    <div style={{ maxWidth: 600, margin: "40px auto", fontFamily: "Arial" }}>
+    <div>
       <h1>Upload CV</h1>
 
-      <input
-        type="file"
-        accept="application/pdf"
-        onChange={(e) => setFile(e.target.files[0])}
-      />
+      <form onSubmit={onSubmit}>
+        <input
+          type="file"
+          accept="application/pdf"
+          onChange={(e) => setFile(e.target.files?.[0] || null)}
+        />
 
-      <div style={{ marginTop: 12 }}>
-        <button onClick={onUpload} disabled={loading || !file}>
-          {loading ? "Uploading..." : "Upload"}
-        </button>
-      </div>
+        <div style={{ marginTop: 12 }}>
+          <button type="submit" disabled={loading} style={{ padding: "8px 16px" }}>
+            {loading ? "Uploading..." : "Upload"}
+          </button>
+        </div>
+      </form>
 
-      {error && <p style={{ color: "crimson", marginTop: 12 }}>{error}</p>}
+      {message && <div style={{ marginTop: 12, color: "green" }}>{message}</div>}
+      {error && <div style={{ marginTop: 12, color: "crimson" }}>{error}</div>}
     </div>
   );
 }
