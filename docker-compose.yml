@@ -1,40 +1,45 @@
+name: sepm
+
 services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: sepm
-      POSTGRES_USER: sepm
-      POSTGRES_PASSWORD: hadas
+      POSTGRES_DB: recruiting
+      POSTGRES_USER: recruiting
+      POSTGRES_PASSWORD: recruiting
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U recruiting -d recruiting"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
     volumes:
       - db_data:/var/lib/postgresql/data
-    networks:
-      - app
+    restart: unless-stopped
 
   backend:
     image: mkafri/sepm-backend:latest
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      DB_HOST: db
-      DB_PORT: "5432"
-      DB_NAME: sepm
-      DB_USER: sepm
-      DB_PASSWORD: hadas
-    depends_on:
-      - db
-    networks:
-      - app
+
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/recruiting
+      SPRING_DATASOURCE_USERNAME: recruiting
+      SPRING_DATASOURCE_PASSWORD: recruiting
+
+      APP_STORAGE_BASE_PATH: /data/resumes
+    volumes:
+      - ./backend/data/resumes:/data/resumes
+    restart: unless-stopped
 
   web:
     image: mkafri/sepm-frontend:latest
+    ports:
+      - "8085:80"
     depends_on:
       - backend
-    ports:
-      - "127.0.0.1:8085:80"
-    networks:
-      - app
-
-networks:
-  app:
+    restart: unless-stopped
 
 volumes:
   db_data:
