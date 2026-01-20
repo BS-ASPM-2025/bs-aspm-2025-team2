@@ -15,6 +15,7 @@ export default function NavBar() {
   });
 
   return (
+    <div class="navbar">
     <div style={{ display: "flex", gap: 12, margin: "24px 0" }}>
       <Link to="/upload" style={btnStyle(pathname.startsWith("/upload"))}>
         Upload CV
@@ -22,6 +23,7 @@ export default function NavBar() {
       <Link to="/candidates" style={btnStyle(pathname.startsWith("/candidates"))}>
         Candidate List
       </Link>
+    </div>
     </div>
   );
 }
