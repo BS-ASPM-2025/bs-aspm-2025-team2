@@ -15,7 +15,7 @@ A service for uploading PDF resumes, automatically extracting key fields, and ma
 - View reports
 
 
-#Tech Stack
+# Tech Stack
 
 - Backend: Java, Spring Boot, Maven  
 - Frontend: React + Vite  
@@ -24,7 +24,7 @@ A service for uploading PDF resumes, automatically extracting key fields, and ma
 - Containerization: Docker, Docker Compose
 
 
-#Environment Variables
+# Environment Variables
 
 Database (PostgreSQL)
 - POSTGRES_DB=recruiting  
@@ -39,7 +39,7 @@ Backend (Spring Boot)
 - APP_STORAGE_BASE_PATH=/data/resumes
 
 
-#Project Structure
+# Project Structure
 
 ├── .github/
 │   └── workflows/
@@ -65,7 +65,7 @@ Backend (Spring Boot)
 └── README.md                   # primary project documentatio
 
 
-#Installation & Setup
+# Installation & Setup
 
 - docker-compose up --build
 
