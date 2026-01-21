@@ -1,18 +1,8 @@
 import React from "react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import NavBar from "../components/NavBar.jsx";
 
-
-function Input({
-  label,
-  required,
-  highlight,
-  value,
-  onChange,
-  type = "text",
-  placeholder,
-}) {
+function Input({ label, required, highlight, value, onChange, type = "text", placeholder }) {
   return (
     <div style={{ marginBottom: 12 }}>
       <strong>
@@ -28,14 +18,23 @@ function Input({
           width: "100%",
           padding: 10,
           marginTop: 6,
-          borderRadius: 4,
-          border: "1px solid",
-          borderColor: highlight ? "crimson" : "#ccc",
-          background: highlight ? "#ffecec" : "white",
+          border: highlight ? "2px solid crimson" : "1px solid #ccc",
+          borderRadius: 8,
         }}
       />
     </div>
   );
+}
+
+function loadSavedPositionId() {
+  try {
+    const raw = localStorage.getItem("candidate_filters_v1");
+    if (!raw) return "";
+    const parsed = JSON.parse(raw);
+    return parsed?.positionId ? String(parsed.positionId) : "";
+  } catch {
+    return "";
+  }
 }
 
 export default function CandidateCardPage() {
@@ -60,7 +59,36 @@ export default function CandidateCardPage() {
   const [savedMsg, setSavedMsg] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  // Load candidate
+  // Position selector (for score calculation)
+  const [positions, setPositions] = useState([]);
+  const [positionsErr, setPositionsErr] = useState("");
+  const [positionId, setPositionId] = useState(loadSavedPositionId());
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPositions() {
+      setPositionsErr("");
+      try {
+        const res = await apiFetch("/api/positions", { headers: { Accept: "application/json" } });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (cancelled) return;
+        setPositions(Array.isArray(data) ? data : []);
+      } catch {
+        if (cancelled) return;
+        setPositions([]);
+        setPositionsErr("Failed to load positions");
+      }
+    }
+
+    loadPositions();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // load candidate (re-run on position change to update score)
   useEffect(() => {
     let cancelled = false;
 
@@ -69,7 +97,12 @@ export default function CandidateCardPage() {
       setSavedMsg(null);
 
       try {
-        const res = await fetch(`/api/hr/candidates/${id}`);
+        const params = new URLSearchParams();
+        if (positionId) params.set("position_id", positionId);
+        const qs = params.toString();
+        const url = qs ? `/api/hr/candidates/${id}?${qs}` : `/api/hr/candidates/${id}`;
+
+        const res = await apiFetch(url);
         const raw = await res.text();
 
         let json = null;
@@ -90,53 +123,31 @@ export default function CandidateCardPage() {
         const f = json.fields || {};
         setForm({
           status: json.status ?? "NEW",
-          full_name: f.full_name ?? "",
+          full_name: f.fullName ?? "",
           email: f.email ?? "",
           phone: f.phone ?? "",
           skills: f.skills ?? "",
           years_of_experience:
-            f.years_of_experience === null || f.years_of_experience === undefined
+            f.yearsOfExperience === null || f.yearsOfExperience === undefined
               ? ""
-              : String(f.years_of_experience),
+              : String(f.yearsOfExperience),
         });
 
-        setValidation(
-          json.validation || {
-            email_required_missing: false,
-            phone_required_missing: false,
-          }
-        );
+        setValidation({
+          email_required_missing: false,
+          phone_required_missing: false,
+        });
       } catch (e) {
-        if (!cancelled) setError(e.message);
+        if (cancelled) return;
+        setError(String(e?.message || e || "Failed to load candidate"));
       }
     }
 
-    load();
+    if (id) load();
     return () => {
       cancelled = true;
     };
-  }, [id]);
-
-  function updateField(name, value) {
-    setSavedMsg(null);
-    setError(null);
-
-    setForm((prev) => ({ ...prev, [name]: value }));
-
-    // Live required highlighting
-    if (name === "email") {
-      setValidation((prev) => ({
-        ...prev,
-        email_required_missing: value.trim() === "",
-      }));
-    }
-    if (name === "phone") {
-      setValidation((prev) => ({
-        ...prev,
-        phone_required_missing: value.trim() === "",
-      }));
-    }
-  }
+  }, [id, positionId]);
 
   async function onSave() {
     setSavedMsg(null);
@@ -177,7 +188,12 @@ export default function CandidateCardPage() {
 
     setSaving(true);
     try {
-      const res = await fetch(`/api/hr/candidates/${id}`, {
+      const params = new URLSearchParams();
+      if (positionId) params.set("position_id", positionId);
+      const qs = params.toString();
+      const url = qs ? `/api/hr/candidates/${id}?${qs}` : `/api/hr/candidates/${id}`;
+
+      const res = await apiFetch(url, {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
@@ -192,128 +208,139 @@ export default function CandidateCardPage() {
       }
 
       if (!res.ok) {
-        const msg =
-          (json && (json.message || json.error)) ||
-          raw ||
-          `Save failed (${res.status})`;
+        const msg = (json && (json.message || json.error)) || raw || `Save failed (${res.status})`;
         setError(`HTTP ${res.status}: ${msg}`);
         return;
       }
 
-      // Success
       setSavedMsg("Saved");
 
-      // Update local state from server response 
+      // Update local state from server response
       if (json) {
         setLoaded(json);
         const f = json.fields || {};
         setForm({
-          full_name: f.full_name ?? "",
+          status: json.status ?? "NEW",
+          full_name: f.fullName ?? "",
           email: f.email ?? "",
           phone: f.phone ?? "",
           skills: f.skills ?? "",
           years_of_experience:
-            f.years_of_experience === null || f.years_of_experience === undefined
+            f.yearsOfExperience === null || f.yearsOfExperience === undefined
               ? ""
-              : String(f.years_of_experience),
+              : String(f.yearsOfExperience),
         });
-        setValidation(
-          json.validation || {
-            email_required_missing: false,
-            phone_required_missing: false,
-          }
-        );
       }
+
+      setValidation({
+        email_required_missing: false,
+        phone_required_missing: false,
+      });
     } catch (e) {
-      setError(e?.message || "Network error");
+      setError(String(e?.message || e || "Network error"));
     } finally {
       setSaving(false);
     }
   }
 
-  if (!loaded && !error) return <div style={{ padding: 40 }}>Loading...</div>;
-  if (!loaded && error) return <div style={{ padding: 40 }}>Error: {error}</div>;
+  const score =
+    loaded?.score === null || loaded?.score === undefined ? null : Number(loaded.score);
 
   return (
-    <div style={{ maxWidth: 700, margin: "40px auto", fontFamily: "Arial" }}>
-      <h1>Candidate Card</h1>
+    <div>
+      <div style={{ maxWidth: 860 }}>
+        <h1 style={{ fontSize: 56, margin: "32px 0 8px" }}>Candidate Card</h1>
 
-      <p>
-        <b>ID:</b> {loaded.candidate_id}
-      </p>
-      <p>
-        <b>Status:</b> {loaded.status}
-      </p>
+        <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 18 }}>
+          <div style={{ padding: "10px 14px", border: "1px solid #ddd", borderRadius: 12 }}>
+            <div style={{ fontSize: 12, color: "#667", marginBottom: 2 }}>Score</div>
+            <div style={{ fontSize: 32, fontWeight: 800 }}>{score === null ? "—" : score}</div>
+          </div>
 
-      <div style={{ marginBottom: 12 }}>
-  <strong>Status *</strong>
-  <select
-    value={form.status}
-    onChange={(e) => updateField("status", e.target.value)}
-    style={{
-      width: "100%",
-      padding: 10,
-      marginTop: 6,
-      borderRadius: 4,
-      border: "1px solid #ccc",
-      background: "white",
-    }}
-  >
-    <option value="NEW">New</option>
-    <option value="IN_REVIEW">In Review</option>
-    <option value="REJECTED">Rejected</option>
-    <option value="HIRED">Hired</option>
-  </select>
-</div>
+          <div style={{ flex: 1 }}>
+            <label style={{ display: "block", fontWeight: 700 }}>Position (for score)</label>
+            <select
+              value={positionId}
+              onChange={(e) => setPositionId(e.target.value)}
+              style={{ width: "100%", padding: 10, marginTop: 6 }}
+            >
+              <option value="">(not selected)</option>
+              {positions.map((p) => (
+                <option key={p.id} value={String(p.id)}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            {positionsErr ? (
+              <div style={{ fontSize: 12, color: "crimson", marginTop: 4 }}>{positionsErr}</div>
+            ) : null}
+          </div>
+        </div>
 
-      <Input
-        label="Full name"
-        value={form.full_name}
-        onChange={(v) => updateField("full_name", v)}
-        placeholder="e.g., John Doe"
-      />
+        {error ? <div style={{ color: "crimson", marginBottom: 12 }}>{error}</div> : null}
+        {savedMsg ? <div style={{ color: "green", marginBottom: 12 }}>{savedMsg}</div> : null}
 
-      <Input
-        label="Email"
-        required
-        highlight={validation.email_required_missing}
-        value={form.email}
-        onChange={(v) => updateField("email", v)}
-        type="email"
-        placeholder="e.g., john.doe@email.com"
-      />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div>
+            <strong>Status *</strong>
+            <select
+              value={form.status}
+              onChange={(e) => setForm({ ...form, status: e.target.value })}
+              style={{ width: "100%", padding: 10, marginTop: 6, borderRadius: 8 }}
+            >
+              <option value="NEW">NEW</option>
+              <option value="IN_REVIEW">IN_REVIEW</option>
+              <option value="REJECTED">REJECTED</option>
+              <option value="HIRED">HIRED</option>
+            </select>
+          </div>
 
-      <Input
-        label="Phone"
-        required
-        highlight={validation.phone_required_missing}
-        value={form.phone}
-        onChange={(v) => updateField("phone", v)}
-        placeholder="e.g., +972501234567"
-      />
+          <Input
+            label="Full name"
+            value={form.full_name}
+            onChange={(v) => setForm({ ...form, full_name: v })}
+            placeholder="Alice Smith"
+          />
+        </div>
 
-      <Input
-        label="Skills"
-        value={form.skills}
-        onChange={(v) => updateField("skills", v)}
-        placeholder="e.g., Java, Spring, Docker"
-      />
+        <div style={{ marginTop: 8 }}>
+          <Input
+            label="Email"
+            required
+            highlight={validation.email_required_missing}
+            value={form.email}
+            onChange={(v) => setForm({ ...form, email: v })}
+            placeholder="alice@mail.com"
+          />
 
-      <Input
-        label="Years of experience"
-        value={form.years_of_experience}
-        onChange={(v) => updateField("years_of_experience", v)}
-        placeholder="e.g., 5"
-      />
+          <Input
+            label="Phone"
+            required
+            highlight={validation.phone_required_missing}
+            value={form.phone}
+            onChange={(v) => setForm({ ...form, phone: v })}
+            placeholder="+1 555 123"
+          />
 
-      <div style={{ marginTop: 16 }}>
-        <button onClick={onSave} disabled={saving} style={{ padding: "10px 16px" }}>
-          {saving ? "Saving..." : "Save"}
-        </button>
+          <Input
+            label="Skills"
+            value={form.skills}
+            onChange={(v) => setForm({ ...form, skills: v })}
+            placeholder="Java, Spring, SQL"
+          />
+
+          <Input
+            label="Years of experience"
+            value={form.years_of_experience}
+            onChange={(v) => setForm({ ...form, years_of_experience: v })}
+            placeholder="2"
+          />
+
+          <button onClick={onSave} disabled={saving} style={{ padding: "10px 16px", marginTop: 8 }}>
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
       </div>
-
-      {error && <p style={{ color: "crimson", marginTop: 12 }}>{error}</p>}
-      {savedMsg && <p style={{ color: "green", marginTop: 12 }}>{savedMsg}</p>}
     </div>
   );
 }

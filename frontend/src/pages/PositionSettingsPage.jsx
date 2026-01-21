@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from "react";
-import NavBar from "../components/NavBar.jsx";
 
 const emptyDraft = () => ({
   id: null,
@@ -44,7 +43,7 @@ export default function PositionSettingsPage() {
       setInfo("");
 
       try {
-        const res = await fetch("/api/manager/positions", {
+        const res = await apiFetch("/api/manager/positions", {
           method: "GET",
           headers: { Accept: "application/json" },
         });
@@ -132,7 +131,7 @@ export default function PositionSettingsPage() {
       const url = isNew ? "/api/manager/positions" : `/api/manager/positions/${draft.id}`;
       const method = isNew ? "POST" : "PUT";
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: {
           "Content-Type": "application/json",
@@ -207,7 +206,7 @@ export default function PositionSettingsPage() {
     if (!confirm("Delete this position?")) return;
 
     try {
-      const res = await fetch(`/api/manager/positions/${draft.id}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/manager/positions/${draft.id}`, { method: "DELETE" });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
         throw new Error(parseBackendError(body) || `HTTP ${res.status}`);

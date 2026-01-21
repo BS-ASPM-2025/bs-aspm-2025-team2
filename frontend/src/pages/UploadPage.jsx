@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import NavBar from "../components/NavBar.jsx";
 
 export default function UploadPage() {
   const navigate = useNavigate();
@@ -35,7 +34,7 @@ export default function UploadPage() {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/hr/candidates/upload-resume", {
+      const res = await apiFetch("/api/hr/candidates/upload-resume", {
         method: "POST",
         body: formData,
       });

@@ -11,7 +11,7 @@ export default function NavBar() {
 
     async function checkRole() {
       try {
-        const res = await fetch("/api/manager/positions", {
+        const res = await fetch("/api/positions", {
           method: "GET",
           headers: { Accept: "application/json" },
         });
