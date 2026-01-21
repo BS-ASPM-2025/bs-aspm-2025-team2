@@ -25,6 +25,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/health").permitAll()
                 .requestMatchers("/api/manager/**").hasRole("MANAGER")
                 .requestMatchers("/api/hr/**").hasAnyRole("HR", "MANAGER")
+                .requestMatchers("/api/positions/**").hasAnyRole("HR", "MANAGER")
                 .anyRequest().authenticated()
         );
 
