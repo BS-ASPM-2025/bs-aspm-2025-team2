@@ -1,27 +1,34 @@
 import React from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
-import UploadPage from "./pages/UploadPage.jsx";
-import CandidateCardPage from "./pages/CandidateCardPage.jsx";
-import CandidateListPage from "./pages/CandidateListPage.jsx";
-import PositionSettingsPage from "./pages/PositionSettingsPage.jsx";
-import ReportsPage from "./pages/ReportsPage.jsx";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
-import "./App.css";
-import NavBar from "./components/NavBar.jsx";
+import NavBar from "./components/NavBar";
+import UploadPage from "./pages/UploadPage";
+import CandidateListPage from "./pages/CandidateListPage";
+import CandidateCardPage from "./pages/CandidateCardPage";
+import ReportsPage from "./pages/ReportsPage";
+import PositionSettingsPage from "./pages/PositionSettingsPage";
 
 export default function App() {
   return (
-    <div className="container">
+    <BrowserRouter>
       <NavBar />
-      <Routes>
-        <Route path="/" element={<Navigate to="/candidates" replace />} />
-        <Route path="/upload" element={<UploadPage />} />
-        <Route path="/candidates/:id" element={<CandidateCardPage />} />
-        <Route path="/candidates" element={<CandidateListPage />} />
-        <Route path="/settings" element={<PositionSettingsPage />} />
-        <Route path="/reports/1" element={<ReportsPage initialTab={1} />} />
-        <Route path="/reports/2" element={<ReportsPage initialTab={2} />} />
-      </Routes>
-    </div>
+      <div style={{ padding: "0 24px 24px" }}>
+        <Routes>
+          <Route path="/" element={<Navigate to="/candidates" replace />} />
+          <Route path="/upload" element={<UploadPage />} />
+          <Route path="/candidates" element={<CandidateListPage />} />
+          <Route path="/candidates/:id" element={<CandidateCardPage />} />
+
+          {/* Separate routes for report 1 and report 2 */}
+          <Route path="/reports/1" element={<ReportsPage initialTab="pipeline" />} />
+          <Route path="/reports/2" element={<ReportsPage initialTab="top" />} />
+
+          {/* Manager settings page */}
+          <Route path="/settings" element={<PositionSettingsPage />} />
+
+          <Route path="*" element={<div>Not found</div>} />
+        </Routes>
+      </div>
+    </BrowserRouter>
   );
 }

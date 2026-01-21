@@ -1,109 +1,74 @@
 import React, { useEffect, useState } from "react";
-import { NavLink } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { apiFetch, clearAuth } from "../api";
 
 export default function NavBar() {
-  const [canSeeSettings, setCanSeeSettings] = useState(false);
-  const [canUpload, setCanUpload] = useState(false);
-  const [checkedRole, setCheckedRole] = useState(false);
+  const loc = useLocation();
+  const [role, setRole] = useState("UNKNOWN"); // MANAGER | HR | UNKNOWN
 
   useEffect(() => {
     let cancelled = false;
 
-    async function checkRole() {
+    async function detectRole() {
       try {
-        const res = await fetch("/api/positions", {
+        const res = await apiFetch("/api/manager/reports/pipeline-stats", {
           method: "GET",
           headers: { Accept: "application/json" },
         });
 
         if (cancelled) return;
 
-        if (res.ok) {
-          // manager
-          setCanSeeSettings(true);
-          setCanUpload(false);
-        } else if (res.status === 401 || res.status === 403) {
-          // hr (API protected)
-          setCanSeeSettings(false);
-          setCanUpload(true);
-        } else {
-          // unexpected (500 etc)
-          setCanSeeSettings(false);
-          setCanUpload(true);
-        }
-
-        setCheckedRole(true);
+        if (res.ok) setRole("MANAGER");
+        else setRole("HR");
       } catch {
-        if (cancelled) return;
-        // network error
-        setCanSeeSettings(false);
-        setCanUpload(true);
-        setCheckedRole(true);
+        if (!cancelled) setRole("UNKNOWN");
       }
     }
 
-    checkRole();
+    detectRole();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const linkStyle = ({ isActive }) => ({
-    padding: "12px 18px",
+  const isActive = (p) => loc.pathname.startsWith(p);
+
+  const btn = (active) => ({
+    display: "inline-block",
+    padding: "14px 18px",
     borderRadius: 14,
-    border: "1px solid #d9d9d9",
+    border: "1px solid #ddd",
+    fontWeight: 900,
     textDecoration: "none",
-    fontWeight: 600,
-    color: "#111",
-    background: isActive ? "#0b66ff" : "#fff",
-    ...(isActive ? { color: "#fff", borderColor: "#0b66ff" } : {}),
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minWidth: 140,
+    color: active ? "white" : "black",
+    background: active ? "#1d4ed8" : "transparent",
   });
 
-  const barStyle = {
-    display: "inline-flex",
-    gap: 12,
-    padding: 10,
-    borderRadius: 16,
-    border: "1px solid #e5e5e5",
-    background: "#fff",
-  };
-
   return (
-    <div style={{ marginTop: 18, marginBottom: 18 }}>
-      <div style={barStyle}>
-        {checkedRole && canUpload && (
-          <NavLink to="/upload" style={linkStyle}>
-            Upload CV
-          </NavLink>
-        )}
+    <div style={{ padding: 24, display: "flex", gap: 12, alignItems: "center" }}>
+      <Link to="/candidates" style={btn(isActive("/candidates"))}>Candidate List</Link>
+      <Link to="/upload" style={btn(isActive("/upload"))}>Upload CV</Link>
 
-        {checkedRole && (
-          <NavLink to="/candidates" style={linkStyle}>
-            Candidate List
-          </NavLink>
-        )}
+      {role === "MANAGER" ? (
+        <>
+          <Link to="/reports/1" style={btn(isActive("/reports/1"))}>Report #1</Link>
+          <Link to="/reports/2" style={btn(isActive("/reports/2"))}>Report #2</Link>
+          <Link to="/settings" style={btn(isActive("/settings"))}>Settings</Link>
+        </>
+      ) : null}
 
-        {checkedRole && canSeeSettings && (
-          <NavLink to="/reports/1" style={linkStyle}>
-            Report #1
-          </NavLink>
-        )}
-
-        {checkedRole && canSeeSettings && (
-          <NavLink to="/reports/2" style={linkStyle}>
-            Report #2
-          </NavLink>
-        )}
-
-        {checkedRole && canSeeSettings && (
-          <NavLink to="/settings" style={linkStyle}>
-            Settings
-          </NavLink>
-        )}
+      <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
+        <div style={{ fontWeight: 900, color: "#334" }}>Role: {role}</div>
+        <button
+          onClick={() => {
+            clearAuth();
+            window.location.reload();
+          }}
+          style={{ padding: "10px 14px", fontWeight: 900 }}
+          title="Clear saved Basic Auth"
+        >
+          Logout
+        </button>
       </div>
     </div>
   );

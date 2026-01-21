@@ -1,374 +1,201 @@
 import React, { useEffect, useMemo, useState } from "react";
-
-const emptyDraft = () => ({
-  id: null,
-  name: "",
-  requiredSkills: "",
-  skillsWeight: 50,
-  experienceWeight: 50,
-});
-
-function parseBackendError(json) {
-  if (!json) return "Request failed";
-  const msg = json.message || "Request failed";
-  const fields = json.fields && typeof json.fields === "object" ? json.fields : null;
-  if (!fields) return msg;
-
-  const lines = Object.entries(fields).map(([k, v]) => `${k}: ${v}`);
-  return `${msg}\n${lines.join("\n")}`;
-}
+import { apiFetch } from "../api";
 
 export default function PositionSettingsPage() {
-  const [positions, setPositions] = useState([]);
+  const [items, setItems] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
 
-  const [draft, setDraft] = useState(emptyDraft());
-  const [loadingList, setLoadingList] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [name, setName] = useState("");
+  const [requiredSkills, setRequiredSkills] = useState("");
+  const [skillsWeight, setSkillsWeight] = useState(50);
+  const [experienceWeight, setExperienceWeight] = useState(50);
 
+  const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
-  const [info, setInfo] = useState("");
 
-  const selected = useMemo(
-    () => positions.find((p) => p.id === selectedId) || null,
-    [positions, selectedId]
-  );
+  const sumOk = useMemo(() => Number(skillsWeight) + Number(experienceWeight) === 100, [skillsWeight, experienceWeight]);
 
-  // Load positions (Manager only)
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setLoadingList(true);
-      setErr("");
-      setInfo("");
+  async function loadPositions() {
+    setLoading(true);
+    setErr("");
+    try {
+      // manager-only list is optional; fallback to public /api/positions
+      let res = await apiFetch("/api/manager/positions", { headers: { Accept: "application/json" } });
+      if (!res.ok) res = await apiFetch("/api/positions", { headers: { Accept: "application/json" } });
 
-      try {
-        const res = await apiFetch("/api/manager/positions", {
-          method: "GET",
-          headers: { Accept: "application/json" },
-        });
-
-        if (!res.ok) {
-          const body = await res.json().catch(() => null);
-          throw new Error(parseBackendError(body) || `HTTP ${res.status}`);
-        }
-
-        const data = await res.json();
-        if (cancelled) return;
-
-        setPositions(Array.isArray(data) ? data : []);
-        // auto-select first
-        if (Array.isArray(data) && data.length > 0) {
-          setSelectedId(data[0].id);
-          setDraft({
-            id: data[0].id,
-            name: data[0].name ?? "",
-            requiredSkills: data[0].requiredSkills ?? "",
-            skillsWeight: Number(data[0].skillsWeight ?? 0),
-            experienceWeight: Number(data[0].experienceWeight ?? 0),
-          });
-        } else {
-          setSelectedId(null);
-          setDraft(emptyDraft());
-        }
-      } catch (e) {
-        if (!cancelled) setErr(String(e.message || e));
-      } finally {
-        if (!cancelled) setLoadingList(false);
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const arr = Array.isArray(data) ? data : [];
+      setItems(arr);
+      if (arr.length && selectedId == null) setSelectedId(arr[0].id);
+    } catch (e) {
+      console.error(e);
+      setItems([]);
+      setErr("Failed to load positions (check Manager credentials / backend).");
+    } finally {
+      setLoading(false);
     }
+  }
 
-    load();
-    return () => {
-      cancelled = true;
-    };
+  useEffect(() => {
+    loadPositions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // When selecting a position -> load into draft
   useEffect(() => {
-    if (!selected) return;
-    setErr("");
-    setInfo("");
-    setDraft({
-      id: selected.id,
-      name: selected.name ?? "",
-      requiredSkills: selected.requiredSkills ?? "",
-      skillsWeight: Number(selected.skillsWeight ?? 0),
-      experienceWeight: Number(selected.experienceWeight ?? 0),
-    });
-  }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
+    const p = items.find((x) => x.id === selectedId);
+    if (!p) return;
+    setName(p.name ?? "");
+    // backend field names: requiredSkills / required_skills
+    setRequiredSkills((p.requiredSkills ?? p.required_skills ?? "").toString().replaceAll(",", "\n"));
+    setSkillsWeight(Number(p.skillsWeight ?? p.skills_weight ?? 50));
+    setExperienceWeight(Number(p.experienceWeight ?? p.experience_weight ?? 50));
+  }, [selectedId, items]);
 
-  function localValidate(d) {
-    const sw = Number(d.skillsWeight);
-    const ew = Number(d.experienceWeight);
-    if (!Number.isFinite(sw) || !Number.isFinite(ew)) return "Weights must be numbers";
-    if (sw < 0 || ew < 0) return "Weights must be non-negative";
-    if (sw + ew !== 100) return "Weights must sum to 100";
-    if (!String(d.name || "").trim()) return "Position name is required";
-    return "";
+  function onNew() {
+    setSelectedId(null);
+    setName("");
+    setRequiredSkills("");
+    setSkillsWeight(50);
+    setExperienceWeight(50);
   }
 
   async function onSave() {
-    setErr("");
-    setInfo("");
-
-    const v = localValidate(draft);
-    if (v) {
-      setErr(v);
+    if (!sumOk) {
+      alert("Weights sum must be 100");
       return;
     }
-
-    setSaving(true);
+    setLoading(true);
+    setErr("");
     try {
       const payload = {
-        name: String(draft.name || "").trim(),
-        requiredSkills: String(draft.requiredSkills || ""),
-        skillsWeight: Number(draft.skillsWeight),
-        experienceWeight: Number(draft.experienceWeight),
+        name,
+        requiredSkills: requiredSkills
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .join(", "),
+        skillsWeight: Number(skillsWeight),
+        experienceWeight: Number(experienceWeight),
       };
 
-      const isNew = !draft.id;
-      const url = isNew ? "/api/manager/positions" : `/api/manager/positions/${draft.id}`;
-      const method = isNew ? "POST" : "PUT";
-
-      const res = await apiFetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        throw new Error(parseBackendError(body) || `HTTP ${res.status}`);
+      if (selectedId == null) {
+        const res = await apiFetch("/api/manager/positions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      } else {
+        const res = await apiFetch(`/api/manager/positions/${selectedId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
       }
 
-      const saved = await res.json();
-      // update list
-      setPositions((prev) => {
-        const arr = Array.isArray(prev) ? [...prev] : [];
-        const idx = arr.findIndex((p) => p.id === saved.id);
-        if (idx >= 0) arr[idx] = saved;
-        else arr.unshift(saved);
-        return arr;
-      });
-      setSelectedId(saved.id);
-      setDraft({
-        id: saved.id,
-        name: saved.name ?? "",
-        requiredSkills: saved.requiredSkills ?? "",
-        skillsWeight: Number(saved.skillsWeight ?? 0),
-        experienceWeight: Number(saved.experienceWeight ?? 0),
-      });
-      setInfo("Saved");
+      await loadPositions();
     } catch (e) {
-      setErr(String(e.message || e));
+      console.error(e);
+      setErr("Save failed (are you logged in as Manager?)");
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
-  }
-
-  function onCancel() {
-    setErr("");
-    setInfo("");
-    if (!selected) {
-      setDraft(emptyDraft());
-      return;
-    }
-    setDraft({
-      id: selected.id,
-      name: selected.name ?? "",
-      requiredSkills: selected.requiredSkills ?? "",
-      skillsWeight: Number(selected.skillsWeight ?? 0),
-      experienceWeight: Number(selected.experienceWeight ?? 0),
-    });
-  }
-
-  function onNew() {
-    setErr("");
-    setInfo("");
-    setSelectedId(null);
-    setDraft(emptyDraft());
   }
 
   async function onDelete() {
-    setErr("");
-    setInfo("");
-
-    if (!draft.id) {
-      // deleting unsaved draft just resets
-      setDraft(emptyDraft());
-      return;
-    }
-
+    if (selectedId == null) return;
     if (!confirm("Delete this position?")) return;
 
+    setLoading(true);
+    setErr("");
     try {
-      const res = await apiFetch(`/api/manager/positions/${draft.id}`, { method: "DELETE" });
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        throw new Error(parseBackendError(body) || `HTTP ${res.status}`);
-      }
-
-      setPositions((prev) => prev.filter((p) => p.id !== draft.id));
-
-      // pick next
-      const remaining = positions.filter((p) => p.id !== draft.id);
-      if (remaining.length > 0) {
-        setSelectedId(remaining[0].id);
-      } else {
-        setSelectedId(null);
-        setDraft(emptyDraft());
-      }
-      setInfo("Deleted");
+      const res = await apiFetch(`/api/manager/positions/${selectedId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setSelectedId(null);
+      await loadPositions();
     } catch (e) {
-      setErr(String(e.message || e));
+      console.error(e);
+      setErr("Delete failed (are you logged in as Manager?)");
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-    <div className="container">
+    <div style={{ padding: 24 }}>
+      <h1 style={{ fontSize: 56, margin: "20px 0 20px" }}>Position settings</h1>
 
-      <h1 style={{ marginTop: 24, marginBottom: 18 }}>Position settings</h1>
+      {err ? <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div> : null}
+      {loading ? <div style={{ marginBottom: 12 }}>Loading…</div> : null}
 
-      {loadingList && <div style={{ marginBottom: 12 }}>Loading…</div>}
-
-      {err && (
-        <pre style={{ color: "crimson", whiteSpace: "pre-wrap", marginBottom: 12 }}>
-          {err}
-        </pre>
-      )}
-      {info && <div style={{ color: "green", marginBottom: 12 }}>{info}</div>}
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "280px 1fr",
-          gap: 24,
-          alignItems: "start",
-        }}
-      >
-        {/* Left: list */}
-        <div
-          style={{
-            border: "1px solid #e5e5e5",
-            borderRadius: 12,
-            padding: 16,
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
-            <strong>Positions</strong>
-            <button onClick={onNew}>+ New</button>
+      <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: 18, maxWidth: 980 }}>
+        <div style={{ border: "1px solid #eee", borderRadius: 16, padding: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <div style={{ fontWeight: 800 }}>Positions</div>
+            <button onClick={onNew} style={{ padding: "8px 12px", fontWeight: 800 }}>+ New</button>
           </div>
 
-          {positions.length === 0 ? (
-            <div style={{ opacity: 0.7 }}>No positions yet</div>
+          {items.length === 0 ? (
+            <div style={{ color: "#667" }}>No positions yet</div>
           ) : (
-            <div style={{ display: "grid", gap: 8 }}>
-              {positions.map((p) => (
-                <label
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {items.map((p) => (
+                <button
                   key={p.id}
+                  onClick={() => setSelectedId(p.id)}
                   style={{
-                    display: "flex",
-                    gap: 10,
-                    alignItems: "center",
-                    padding: "8px 10px",
-                    borderRadius: 10,
-                    cursor: "pointer",
-                    background: p.id === selectedId ? "#f2f2f2" : "transparent",
+                    textAlign: "left",
+                    padding: "10px 12px",
+                    borderRadius: 12,
+                    border: "1px solid #ddd",
+                    fontWeight: 800,
+                    background: selectedId === p.id ? "#1d4ed8" : "transparent",
+                    color: selectedId === p.id ? "white" : "black",
                   }}
                 >
-                  <input
-                    type="radio"
-                    name="position"
-                    checked={p.id === selectedId}
-                    onChange={() => setSelectedId(p.id)}
-                  />
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {p.name || `Position #${p.id}`}
-                  </span>
-                </label>
+                  {p.name}
+                </button>
               ))}
             </div>
           )}
         </div>
 
-        {/* Right: editor */}
-        <div
-          style={{
-            border: "1px solid #e5e5e5",
-            borderRadius: 12,
-            padding: 16,
-          }}
-        >
-          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 14 }}>
-            {draft.id ? `Position #${draft.id}` : "New position"}
+        <div style={{ border: "1px solid #eee", borderRadius: 16, padding: 18 }}>
+          <div style={{ fontWeight: 900, textAlign: "center", marginBottom: 12 }}>
+            {selectedId == null ? "New position" : "Edit position"}
           </div>
 
-          <div style={{ display: "grid", gap: 12, maxWidth: 700 }}>
-            <label style={{ display: "grid", gap: 6 }}>
-              <span>Position name</span>
-              <input
-                value={draft.name}
-                onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-                placeholder="e.g., Backend Intern"
-              />
-            </label>
+          <label style={{ display: "block", fontWeight: 800, marginTop: 10 }}>Position name</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Backend Intern"
+                 style={{ width: "100%", padding: 10 }} />
 
-            <label style={{ display: "grid", gap: 6 }}>
-              <span>Required skills (one per line)</span>
-              <textarea
-                rows={7}
-                value={draft.requiredSkills}
-                onChange={(e) => setDraft((d) => ({ ...d, requiredSkills: e.target.value }))}
-                placeholder={"java\nspring\npostgres"}
-              />
-            </label>
+          <label style={{ display: "block", fontWeight: 800, marginTop: 14 }}>Required skills (one per line)</label>
+          <textarea value={requiredSkills} onChange={(e) => setRequiredSkills(e.target.value)} rows={8}
+                    style={{ width: "100%", padding: 10 }} />
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <label style={{ display: "grid", gap: 6 }}>
-                <span>skills_weight</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={draft.skillsWeight}
-                  onChange={(e) => setDraft((d) => ({ ...d, skillsWeight: e.target.value }))}
-                />
-              </label>
-
-              <label style={{ display: "grid", gap: 6 }}>
-                <span>experience_weight</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={draft.experienceWeight}
-                  onChange={(e) =>
-                    setDraft((d) => ({ ...d, experienceWeight: e.target.value }))
-                  }
-                />
-              </label>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 14 }}>
+            <div>
+              <label style={{ display: "block", fontWeight: 800 }}>skills_weight</label>
+              <input value={skillsWeight} onChange={(e) => setSkillsWeight(e.target.value)} style={{ width: "100%", padding: 10 }} />
             </div>
-
-            <div style={{ opacity: 0.8 }}>
-              Sum must be 100 (now:{" "}
-              {Number(draft.skillsWeight || 0) + Number(draft.experienceWeight || 0)})
+            <div>
+              <label style={{ display: "block", fontWeight: 800 }}>experience_weight</label>
+              <input value={experienceWeight} onChange={(e) => setExperienceWeight(e.target.value)} style={{ width: "100%", padding: 10 }} />
             </div>
+          </div>
 
-            <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
-              <button onClick={onCancel} disabled={saving}>
-                Cancel
-              </button>
-              <button onClick={onDelete} disabled={saving}>
-                Delete
-              </button>
-              <button onClick={onSave} disabled={saving} style={{ marginLeft: "auto" }}>
-                {saving ? "Saving…" : "Save"}
-              </button>
-            </div>
+          <div style={{ marginTop: 10, color: sumOk ? "#1b5" : "crimson", fontWeight: 800 }}>
+            Sum must be 100 (now: {Number(skillsWeight) + Number(experienceWeight)})
+          </div>
+
+          <div style={{ display: "flex", gap: 10, justifyContent: "space-between", marginTop: 18 }}>
+            <button onClick={onNew} style={{ padding: "10px 16px", fontWeight: 900 }}>Cancel</button>
+            <button onClick={onDelete} style={{ padding: "10px 16px", fontWeight: 900 }}>Delete</button>
+            <button onClick={onSave} style={{ padding: "10px 16px", fontWeight: 900 }} disabled={!sumOk}>
+              Save
+            </button>
           </div>
         </div>
       </div>
